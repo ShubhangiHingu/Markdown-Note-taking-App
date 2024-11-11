@@ -1,50 +1,53 @@
 from flask import Flask, render_template, request, redirect, url_for
-from flask_sqlalchemy import SQLAlchemy
+import random
 
 app = Flask(__name__)
 
-# /// = relative path, //// = absolute path
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
+todos = [
+    {
+        'id': 1,
+        'name': 'Write SQL',
+        'checked': False
+    },
+    {
+        'id': 2,
+        'name': 'Write Python',
+        'checked': True
+    }
+]
 
-
-class Todo(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100))
-    complete = db.Column(db.Boolean)
-
-
-@app.route("/")
+@app.route("/", methods=["GET", "POST"])
+@app.route("/home", methods=["GET", "POST"])
 def home():
-    todo_list = Todo.query.all()
-    return render_template("base.html", todo_list=todo_list)
+    if (request.method == "POST"):
+        todo_name = request.form["todo_name"]
+        cur_id = random.randint(1, 1000)
+        todos.append(
+            {
+            'id': cur_id,
+            'name': todo_name,
+            'checked': False
+            }
+        )
+        return redirect(url_for("home"))
+    return render_template("index.html", items=todos)
 
-
-@app.route("/add", methods=["POST"])
-def add():
-    title = request.form.get("title")
-    new_todo = Todo(title=title, complete=False)
-    db.session.add(new_todo)
-    db.session.commit()
+@app.route("/checked/<int:todo_id>", methods=["POST"])
+def checked_todo(todo_id):
+    for todo in todos:
+        if todo['id'] == todo_id:
+            todo['checked'] = not todo['checked']  # Toggle the status
+            break
     return redirect(url_for("home"))
 
-
-@app.route("/update/<int:todo_id>")
-def update(todo_id):
-    todo = Todo.query.filter_by(id=todo_id).first()
-    todo.complete = not todo.complete
-    db.session.commit()
+@app.route("/delete/<int:todo_id>", methods=["POST"])
+def delete_todo(todo_id):
+    global todos
+    for todo in todos:
+        if todo['id'] == todo_id:
+            todos.remove(todo)
     return redirect(url_for("home"))
 
-
-@app.route("/delete/<int:todo_id>")
-def delete(todo_id):
-    todo = Todo.query.filter_by(id=todo_id).first()
-    db.session.delete(todo)
-    db.session.commit()
-    return redirect(url_for("home"))
 
 if __name__ == "__main__":
-    db.create_all()
     app.run(debug=True)
